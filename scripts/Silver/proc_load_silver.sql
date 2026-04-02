@@ -172,6 +172,13 @@ BEGIN
 
         SET @start_time = GETDATE();
         PRINT '>> Truncating Table: silver.erp_cust_az12';
+        IF OBJECT_ID('silver.erp_cust_az12', 'U') IS NOT NULL
+        DROP TABLE silver.erp_cust_az12
+        CREATE TABLE silver.erp_cust_az12 (
+            cid   NVARCHAR(50),
+            bdate DATE, -- Changed from DATETIME to DATE
+            gen   NVARCHAR(50)
+        )
         TRUNCATE TABLE silver.erp_cust_az12;
         PRINT '>> Inserting Data into: silver.erp_cust_az12 <<';
             INSERT INTO silver.erp_cust_az12 (
@@ -183,9 +190,12 @@ BEGIN
             CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid))
                 ELSE cid
             END AS cid,
-            CASE WHEN bdate > GETDATE() THEN NULL
+            CAST (
+                CASE
+                WHEN bdate > GETDATE() OR bdate < '1924-01-01' THEN NULL
                 ELSE bdate
-            END AS bdate,
+                END AS DATE
+            )AS bdate,
             CASE 
                 WHEN UPPER(LEFT(TRIM(gen), 1)) IN ('M', 'MALE') THEN 'Male'
                 WHEN UPPER(LEFT(TRIM(gen), 1)) IN ('F', 'FEMALE') THEN 'Female'
@@ -204,14 +214,14 @@ BEGIN
                 cid,
                 cntry
             )
-
+            
             SELECT
-            REPLACE (cid, '-', '') AS cid,
+            REPLACE (cid, '-', '') AS cid,            
             CASE 
-                WHEN TRIM(cntry) = 'DE' THEN 'Germany'
-                WHEN TRIM(cntry) IN ('US', 'USA') THEN 'United States'
-                WHEN TRIM(cntry) = '' OR cntry IS NULL THEN 'Unknown'
-                ELSE TRIM(cntry)
+                WHEN UPPER(TRIM(REPLACE(cntry, CHAR(13), ''))) = 'DE' THEN 'Germany'
+                WHEN UPPER(TRIM(REPLACE(cntry, CHAR(13), ''))) IN ('US', 'USA') THEN 'United States'
+                WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = '' OR cntry IS NULL THEN 'Unknown'
+                ELSE TRIM(REPLACE(cntry, CHAR(13), ''))
             END AS cntry
             FROM bronze.erp_loc_a101
         SET @end_time = GETDATE();
